@@ -79,15 +79,19 @@ class Client:
         self.can_proceed_fin.clear()  # To enforce fin only after complete transfer
         pack_len = PACKET_LENGTH
 
+        # for i in range(0, len(data), pack_len):
+        #    print(i)
+
         if len(data) > PACKET_LENGTH:
             packets = [
-                Packet(Header(), data[i : min(i + pack_len, len(data))].encode())
-                for i in range(0, len(data), pack_len)
+                Packet(Header(), data[i : min(i + pack_len, len(data))])
+                for i in range(0, len(data) + 1, pack_len)
             ]
             # print("Number of packets: ", len(packets))
         else:
             packets = [Packet(Header(), data)]
 
+        print("len: ", len(packets))
         for packet in packets:
             self.temp_buffer.append(packet)
 
@@ -105,8 +109,8 @@ class Client:
     """
 
     def slideWindow(self):
-        logServer("Adding packet to window")
         if len(self.temp_buffer) != 0:
+            logClient("Adding packet to window")
             packet = self.temp_buffer.popleft()
             self.SEQ_NO += 1
             packet.header.SEQ_NO = self.SEQ_NO
@@ -114,13 +118,19 @@ class Client:
             self.window_packet_buffer.append(
                 [packet, time.time(), PacketState.NOT_SENT]
             )
+            logClient("NOTIFY WINDOW")
+            self.has_window_buffer.set()
+            return True
         else:
+            logClient("CANT SLIDE")
             self.has_window_buffer.clear()
+            return False
 
     def fillWindowBuffer(self):
         """
         Update window, manage time
         """
+        print("here")
         self.acquired_window_buffer.acquire()
         while len(self.window_packet_buffer) < self.rwnd_size:
             if not self.temp_buffer:
@@ -246,10 +256,12 @@ class Client:
                 base_seq = self.window_packet_buffer[0][0].header.SEQ_NO
                 if ack_num > base_seq - 1:
                     index = ack_num - base_seq - 1
-                    logClient(
-                        f"Updating packet {self.window_packet_buffer[index][0].header.SEQ_NO} to ACK'd"
-                    )
-                    self.window_packet_buffer[index][2] = PacketState.ACKED
+                    logClient(f"base window: {base_seq}, index:{index}")
+                    if index >= 0:
+                        logClient(
+                            f"Updating packet {self.window_packet_buffer[index][0].header.SEQ_NO} to ACK'd"
+                        )
+                        self.window_packet_buffer[index][2] = PacketState.ACKED
                 self.acquired_window_buffer.release()
 
         # Handle data packet
@@ -377,6 +389,7 @@ class Client:
         """
         pass
 
+    """
     def slideWindow(self):
         if len(self.temp_buffer) != 0:
             self.window_packet_buffer.append(self.temp_buffer.popleft())
@@ -384,6 +397,7 @@ class Client:
         else:
             self.has_window_buffer.clear()
             return False
+    """
 
     def handleHandshakeTimeout(self):
         """
@@ -457,8 +471,10 @@ if __name__ == "__main__":
     # time.sleep(30)
     # print("gothere")
     a = ""
+    """
     while not client.received_data_packets:
         pass
+    """
     """
     packet = client.received_data_packets[0]
     client.received_data_packets.remove(client.received_data_packets[0])
@@ -466,6 +482,7 @@ if __name__ == "__main__":
     time.sleep(10)
     with open("size", "w") as f:
         f.write(str(size))
+    """
     """
     size = 17725
     byte = 0
@@ -482,3 +499,13 @@ if __name__ == "__main__":
             # print(f"bytes: {byte}")
             f.write(packet.data)
     client.close()
+    """
+    a = b""
+    with open("../RealTimeOpt.pdf", "rb") as f:
+        data = f.read()
+        print(len(data))
+        client.fileTransfer(data)
+
+    while 1:
+        print(len(client.window_packet_buffer), len(client.temp_buffer))
+        time.sleep(1)

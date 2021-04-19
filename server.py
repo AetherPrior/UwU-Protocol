@@ -237,10 +237,11 @@ class Server:
                     logServer(
                         f"Index: {index}, max index = {len(self.window_packet_buffer)-1}"
                     )
-                    logServer(
-                        f"Updating packet {self.window_packet_buffer[index][0].header.SEQ_NO} to ACK'd"
-                    )
-                    self.window_packet_buffer[index][2] = PacketState.ACKED
+                    if index >= 0:
+                        logServer(
+                            f"Updating packet {self.window_packet_buffer[index][0].header.SEQ_NO} to ACK'd"
+                        )
+                        self.window_packet_buffer[index][2] = PacketState.ACKED
                 self.acquired_window_buffer.release()
 
         elif packet.header.has_flag(FIN_FLAG):
@@ -346,8 +347,8 @@ class Server:
         pass
 
     def slideWindow(self):
-        logServer("Adding packet to window")
         if len(self.temp_buffer) != 0:
+            logServer("Adding packet to window")
             packet = self.temp_buffer.popleft()
             self.SEQ_NO += 1
             packet.header.SEQ_NO = self.SEQ_NO
@@ -432,6 +433,7 @@ if __name__ == "__main__":
         pass
     # print("Hey: ")
     a = b""
+    Start = time.time()
     """
     with open("client.py", "rb") as f:
         f.seek(0, os.SEEK_END)
@@ -442,9 +444,27 @@ if __name__ == "__main__":
 
     time.sleep(10)
     """
-
+    """
     a = b""
     with open("client.py", "rb") as f:
         data = f.read()
         print(len(data))
         serv.fileTransfer(data)
+    """
+    size = 1650442
+    byte = 0
+    # poll till it's done
+    while len(serv.received_data_packets) * PACKET_LENGTH < size:
+        print(len(serv.received_data_packets))
+        time.sleep(1)
+        pass
+    End = time.time()
+    print(f"DONE: {End-Start}")
+    with open("f2", "wb") as f:
+        while byte < size:
+            packet = serv.received_data_packets[0]
+            serv.received_data_packets.remove(serv.received_data_packets[0])
+            byte += len(packet.data)
+            # print(f"bytes: {byte}")
+            f.write(packet.data)
+    # serv.close()
